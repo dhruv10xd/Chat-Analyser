@@ -147,3 +147,51 @@ def activity_heatmap(selected_user, df):
     user_heatmap = df.pivot_table(index='day_name', columns='period', values='message', aggfunc='count').fillna(0)
 
     return user_heatmap
+
+def sentiment_analysis(selected_user, df):
+    df["row_id"] = df.index + 1
+    ds_subset = df[['row_id', 'message']].copy()
+    ds_subset['message'] = ds_subset['message'].str.replace("[^a-zA-Z#]", " ")
+    ds_subset['message'] = ds_subset['message'].str.casefold()
+    ds1 = pd.DataFrame()
+    ds1['row_id'] = ['99999999999']
+    ds1['sentiment_type'] = 'NA999NA'
+    ds1['sentiment_score'] = 0
+    sid = SentimentIntensityAnalyzer()
+    t_ds = df
+    for index, row in ds_subset.iterrows():
+        scores = sid.polarity_scores(row[1])
+        for key, value in scores.items():
+            temp = [key, value, row[0]]
+            ds1['row_id'] = row[0]
+            ds1['sentiment_type'] = key
+            ds1['sentiment_score'] = value
+            t_ds = t_ds.append(ds1)
+    # remove dummy row with row_id = 99999999999
+    t_ds_cleaned = t_ds[t_ds.row_id != '99999999999']
+    # remove duplicates if any exist
+    t_ds_cleaned = t_ds_cleaned.drop_duplicates()
+    # only keep rows where sentiment_type = compound
+    t_ds_cleaned = t_ds[t_ds.sentiment_type == 'compound']
+
+    return t_ds_cleaned
+
+def sentiment_summary(selected_user, df):
+    t_ds_cleaned = sentiment_analysis(selected_user, df)
+    ds_output = pd.merge(df, t_ds_cleaned, on='row_id', how='inner')
+
+
+    return ds_output[["sentiment_score"]].describe()
+
+def graph(selected_user, df):
+    graph = sentiment_analysis(selected_user, df)
+    row_id = df['date']
+    sentiment_score = graph['sentiment_score']
+    return row_id, sentiment_score
+
+def graph1(selected_user, df):
+    graph = sentiment_analysis(selected_user, df)
+    row_id = df['user']
+    sentiment_score = graph['sentiment_score']
+    return row_id, sentiment_score
+
